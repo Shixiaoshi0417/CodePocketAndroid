@@ -1,64 +1,66 @@
 # CodePocketAndroid
 
+[English Version →](README_EN.md)
+
 ![License](https://img.shields.io/github/license/Shixiaoshi0417/CodePocketAndroid)
 ![Platform](https://img.shields.io/badge/platform-Android-green)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin)
 ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)
 ![Gradle](https://img.shields.io/badge/Gradle-8.10-02303A?logo=gradle)
 
-Android client for controlling OpenCode from your phone.
+通过手机远程操控 OpenCode 的 Android 客户端。
 
-## Features
+## 功能特性
 
-- OpenCode Agent — send prompts and receive streaming responses
-- Session management — browse, create, switch, and delete sessions
-- DeepSeek model — read-only model display synced from OpenCode
-- Real-time streaming via WebSocket
-- Markdown rendering — code blocks, tables, bold, italic, lists
-- Room database — local message persistence
+- OpenCode Agent — 发送指令并接收流式响应
+- 会话管理 — 浏览、创建、切换和删除会话
+- DeepSeek 模型 — 只读模型显示，与 OpenCode 自动同步
+- WebSocket 实时流式通信
+- Markdown 渲染 — 支持代码块、表格、粗体、斜体、列表
+- Room 数据库 — 本地消息持久化存储
 
-## Requirements
+## 环境要求
 
 - Android 8.0+ (API 26)
 - Java 21+
 - Android SDK
-- Linux environment with Python 3.11+
-- [OpenCode](https://opencode.ai) CLI installed
+- Linux 环境，Python 3.11+
+- 已安装 [OpenCode](https://opencode.ai) CLI
 
-Tested on Debian and Ubuntu. Other Linux distributions should also work if Python 3.11+ and OpenCode are available.
+已在 Debian 和 Ubuntu 上测试通过。其他 Linux 发行版只要具备 Python 3.11+ 和 OpenCode 也可正常运行。
 
-## Architecture
+## 系统架构
 
 ```
 ┌──────────────────┐
-│  Android Client  │  Kotlin + Jetpack Compose
+│  Android 客户端   │  Kotlin + Jetpack Compose
 └────────┬─────────┘
          │ WebSocket
 ┌────────▼─────────┐
-│ FastAPI Backend   │  Python, port 8765
+│ FastAPI 后端      │  Python, 端口 8765
 └────────┬─────────┘
-         │ subprocess
+         │ 子进程
 ┌────────▼─────────┐
 │  OpenCode CLI     │  opencode run
 └────────┬─────────┘
          │ API
 ┌────────▼─────────┐
-│    DeepSeek       │  AI model
+│    DeepSeek       │  AI 模型
 └──────────────────┘
 ```
 
-## Quick Start
+## 快速开始
 
-Clone the repository and enter the project directory:
+克隆仓库并进入项目目录：
 
 ```bash
 git clone https://github.com/Shixiaoshi0417/CodePocketAndroid.git
 cd CodePocketAndroid
 ```
 
-### Backend
+### 后端
 
-By default, the backend listens on `http://0.0.0.0:8765` and exposes the WebSocket endpoint at `/ws`.
+后端默认监听 `http://0.0.0.0:8765`，WebSocket 端点为 `/ws`。
 
 ```bash
 cd backend
@@ -70,32 +72,32 @@ python server.py
 
 ### Android
 
-Prebuilt APKs are available on [GitHub Releases](https://github.com/Shixiaoshi0417/CodePocketAndroid/releases).
+预构建的 APK 可在 [GitHub Releases](https://github.com/Shixiaoshi0417/CodePocketAndroid/releases) 下载。
 
-To build from source:
+从源码构建：
 
 ```bash
 ./gradlew assembleDebug
-# APK: app/build/outputs/apk/debug/app-debug.apk
+# APK 路径: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Usage
+## 使用说明
 
-1. Start OpenCode on your Linux machine
-2. Start the backend: `python server.py`
-3. Install the APK on your Android device
-4. Configure the WebSocket server URL in the app: `ws://<your-server-ip>:8765/ws`
-5. Tap a session or create a new one
-6. Type your prompt and tap Send — OpenCode Agent responds in real-time
+1. 在 Linux 机器上启动 OpenCode
+2. 启动后端：`python server.py`
+3. 在 Android 设备上安装 APK
+4. 在应用中配置 WebSocket 服务器地址：`ws://<你的设备IP>:8765/ws`
+5. 选择已有会话或创建新会话
+6. 输入指令并点击发送 — OpenCode Agent 实时响应
 
-## Project Structure
+## 项目结构
 
 ```
-app/          Android app (Kotlin, Compose, Room, OkHttp)
-backend/      FastAPI WebSocket server (Python)
-docs/         Documentation
+app/          Android 应用 (Kotlin, Compose, Room, OkHttp)
+backend/      FastAPI WebSocket 服务端 (Python)
+docs/         文档
 ```
 
-## License
+## 许可证
 
 Apache License 2.0
