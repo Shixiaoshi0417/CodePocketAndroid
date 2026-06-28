@@ -6,5 +6,7 @@ import kotlinx.serialization.Serializable
 data class ChatResponse(
     val type: String = "",
     val role: String = "",
-    val content: String = ""
+    val content: String = "",
+    val message: String = "",
+    val success: Boolean? = null
 )

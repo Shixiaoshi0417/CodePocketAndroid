@@ -5,10 +5,12 @@ import androidx.lifecycle.AndroidViewModel
 import io.github.shixiaoshi0417.codepocketandroid.database.AppDatabase
 import io.github.shixiaoshi0417.codepocketandroid.database.entity.ConversationEntity
 import io.github.shixiaoshi0417.codepocketandroid.database.entity.MessageEntity
+import io.github.shixiaoshi0417.codepocketandroid.model.AgentStep
 import io.github.shixiaoshi0417.codepocketandroid.model.ChatMessage
 import io.github.shixiaoshi0417.codepocketandroid.model.ConnectionState
 import io.github.shixiaoshi0417.codepocketandroid.model.Conversation
 import io.github.shixiaoshi0417.codepocketandroid.model.MessageRole
+import io.github.shixiaoshi0417.codepocketandroid.model.MessageType
 import io.github.shixiaoshi0417.codepocketandroid.websocket.WebSocketManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +27,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val conversationDao = db.conversationDao()
     private val messageDao = db.messageDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val appContext = application
 
     private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
     val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
@@ -42,7 +43,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     content = message.content,
                     timestamp = message.timestamp,
                     conversationId = message.conversationId,
-                    isStreaming = message.isStreaming
+                    isStreaming = message.isStreaming,
+                    messageType = message.messageType.name,
+                    agentSessionId = message.agentSessionId
                 )
             )
             updateConversationTimestamp(message.conversationId)
@@ -52,11 +55,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val connectionState: StateFlow<ConnectionState> = webSocketManager.connectionState
     val messages: StateFlow<List<ChatMessage>> = webSocketManager.messages
+    val agentViewModel = AgentViewModel(webSocketManager)
 
     init {
-        scope.launch {
-            initializeConversations()
-        }
+        scope.launch { initializeConversations() }
     }
 
     private suspend fun initializeConversations() {
@@ -90,7 +92,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     content = entity.content,
                     timestamp = entity.timestamp,
                     isStreaming = false,
-                    conversationId = entity.conversationId
+                    conversationId = entity.conversationId,
+                    messageType = try { MessageType.valueOf(entity.messageType) } catch (e: Exception) { MessageType.CHAT },
+                    agentSessionId = entity.agentSessionId
                 )
             }
             webSocketManager.switchConversation(convId, restored)
@@ -101,13 +105,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val entities = conversationDao.getAllConversationsOnce()
         val convs = entities.map { entity ->
             val count = messageDao.getMessageCount(entity.id)
-            Conversation(
-                id = entity.id,
-                title = entity.title,
-                createdAt = entity.createdAt,
-                updatedAt = entity.updatedAt,
-                messageCount = count
-            )
+            Conversation(id = entity.id, title = entity.title,
+                createdAt = entity.createdAt, updatedAt = entity.updatedAt, messageCount = count)
         }
         _conversations.value = convs
     }
@@ -122,27 +121,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         scope.launch {
             val conv = conversationDao.getConversation(message.conversationId) ?: return@launch
             if (conv.title != "New Chat") return@launch
-            val title = if (message.content.length > 20) {
-                message.content.take(20)
-            } else {
-                message.content
-            }
+            val title = message.content.take(20)
             conversationDao.updateConversation(conv.id, title, System.currentTimeMillis())
             refreshConversations()
         }
     }
 
-    fun connect() {
-        webSocketManager.connect()
-    }
-
-    fun disconnect() {
-        webSocketManager.disconnect()
-    }
-
-    fun sendChat(message: String) {
-        webSocketManager.sendChat(message)
-    }
+    fun connect() { webSocketManager.connect() }
+    fun disconnect() { webSocketManager.disconnect() }
 
     fun newConversation() {
         scope.launch {
@@ -162,9 +148,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun switchConversation(convId: String) {
         _currentConversationId.value = convId
         loadMessagesForConversation(convId)
-        scope.launch {
-            refreshConversations()
-        }
+        scope.launch { refreshConversations() }
     }
 
     fun deleteConversation(convId: String) {

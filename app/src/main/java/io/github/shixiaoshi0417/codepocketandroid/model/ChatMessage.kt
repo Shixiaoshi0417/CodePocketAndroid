@@ -8,5 +8,7 @@ data class ChatMessage(
     val content: String,
     val timestamp: Long = System.currentTimeMillis(),
     val isStreaming: Boolean = false,
-    val conversationId: String = "default"
+    val conversationId: String = "default",
+    val messageType: MessageType = MessageType.CHAT,
+    val agentSessionId: String = ""
 )

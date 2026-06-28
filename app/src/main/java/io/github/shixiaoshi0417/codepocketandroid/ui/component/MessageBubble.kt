@@ -1,5 +1,6 @@
 package io.github.shixiaoshi0417.codepocketandroid.ui.component
 
+import android.util.Log
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -17,12 +18,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import io.github.shixiaoshi0417.codepocketandroid.model.ChatMessage
 import io.github.shixiaoshi0417.codepocketandroid.model.MessageRole
+import io.github.shixiaoshi0417.codepocketandroid.model.MessageType
 import io.github.shixiaoshi0417.codepocketandroid.ui.markdown.MarkdownText
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,6 +33,10 @@ import java.util.Locale
 
 @Composable
 fun MessageBubble(message: ChatMessage) {
+    SideEffect {
+        Log.d("STREAM", "recompose len=${message.content.length} ${System.currentTimeMillis()}")
+    }
+
     val isUser = message.role == MessageRole.USER
     val backgroundColor = if (isUser) {
         MaterialTheme.colorScheme.primaryContainer
@@ -70,7 +77,15 @@ fun MessageBubble(message: ChatMessage) {
             modifier = Modifier.widthIn(max = 320.dp)
         ) {
             Text(
-                text = if (isUser) "You" else "CodePocket AI",
+                text = when {
+                    isUser -> "You"
+                    message.messageType == MessageType.AGENT_STATUS -> "OpenCode Agent"
+                    message.messageType == MessageType.AGENT_RESULT -> "OpenCode Agent"
+                    message.messageType == MessageType.AGENT_COMMAND -> "OpenCode Agent"
+                    message.messageType == MessageType.AGENT_DIFF -> "OpenCode Agent"
+                    message.messageType == MessageType.SYSTEM -> "System"
+                    else -> "CodePocket AI"
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)

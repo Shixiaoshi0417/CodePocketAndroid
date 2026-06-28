@@ -17,5 +17,9 @@ data class MessageEntity(
     @ColumnInfo(name = "conversation_id")
     val conversationId: String,
     @ColumnInfo(name = "is_streaming")
-    val isStreaming: Boolean = false
+    val isStreaming: Boolean = false,
+    @ColumnInfo(name = "message_type")
+    val messageType: String = "CHAT",
+    @ColumnInfo(name = "agent_session_id")
+    val agentSessionId: String = ""
 )

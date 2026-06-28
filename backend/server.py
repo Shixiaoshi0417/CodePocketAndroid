@@ -1,7 +1,9 @@
 import json
+
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from ai_service import chat, stream_chat
+
+from agent_service import run_agent
 
 app = FastAPI()
 
@@ -20,37 +22,33 @@ async def websocket_endpoint(websocket: WebSocket):
             try:
                 data = json.loads(text)
                 msg_type = data.get("type", "")
-                if msg_type == "chat":
-                    user_message = data.get("message", "")
-                    await websocket.send_text(json.dumps({
-                        "type": "start"
-                    }))
-                    async for token in stream_chat(user_message):
+                if msg_type == "agent":
+                    prompt = data.get("prompt", "")
+                    try:
+                        await run_agent(websocket, prompt)
+                    except Exception as e:
                         await websocket.send_text(json.dumps({
-                            "type": "delta",
-                            "content": token
+                            "type": "agent_result",
+                            "success": False,
+                            "content": str(e)
                         }))
-                    await websocket.send_text(json.dumps({
-                        "type": "done"
-                    }))
                 else:
-                    reply = await chat(text)
                     await websocket.send_text(json.dumps({
-                        "type": "message",
-                        "role": "assistant",
-                        "content": reply
+                        "type": "error",
+                        "message": f"Unknown message type: {msg_type}"
                     }))
             except json.JSONDecodeError:
-                reply = await chat(text)
                 await websocket.send_text(json.dumps({
-                    "type": "message",
-                    "role": "assistant",
-                    "content": reply
+                    "type": "error",
+                    "message": "Invalid JSON"
                 }))
     except WebSocketDisconnect:
         pass
     except Exception:
-        await websocket.close()
+        try:
+            await websocket.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
