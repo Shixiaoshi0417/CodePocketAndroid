@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -76,6 +77,9 @@ fun MainApp() {
                     item {
                         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Text("Sessions", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold), modifier = Modifier.weight(1f))
+                            IconButton(onClick = { viewModel.loadSessions() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                            }
                             IconButton(onClick = { viewModel.newSession(); scope.launch { drawerState.close() } }) {
                                 Icon(Icons.Default.Add, contentDescription = "New")
                             }

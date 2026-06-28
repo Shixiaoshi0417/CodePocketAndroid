@@ -23,6 +23,6 @@ class AgentViewModel(
         }
 
     fun sendPrompt(prompt: String, model: String = "", sessionId: String = "") {
-        webSocketManager.sendAgent(prompt, model, sessionId)
+        webSocketManager.sendAgent(prompt, model.ifEmpty { "deepseek-v4-pro" }, sessionId)
     }
 }

@@ -61,8 +61,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val sessions: StateFlow<List<OpenCodeSession>> = _sessions.asStateFlow()
 
     val currentModel: StateFlow<String> = combine(_sessions, _selectedSessionId) { sessions, id ->
-        sessions.find { it.id == id }?.model ?: "deepseek-v4-pro"
-    }.stateIn(scope, SharingStarted.Eagerly, "deepseek-v4-pro")
+        sessions.find { it.id == id }?.model?.ifEmpty { null } ?: "deepseek-v4-pro"
+    }.stateIn(scope, SharingStarted.Lazily, "deepseek-v4-pro")
 
     val currentSession: StateFlow<OpenCodeSession?> = combine(_sessions, _selectedSessionId) { sessions, id ->
         sessions.find { it.id == id }
