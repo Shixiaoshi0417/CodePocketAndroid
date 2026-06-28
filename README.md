@@ -1,6 +1,6 @@
-# CodePocketAndroid
+# CodePocketAndroid（代码口袋安卓）
 
-[English Version →](README_EN.md)
+[🌐 English: README_EN.md](README_EN.md)
 
 ![License](https://img.shields.io/github/license/Shixiaoshi0417/CodePocketAndroid)
 ![Platform](https://img.shields.io/badge/platform-Android-green)
@@ -8,26 +8,32 @@
 ![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)
 ![Gradle](https://img.shields.io/badge/Gradle-8.10-02303A?logo=gradle)
 
-通过手机远程操控 OpenCode 的 Android 客户端。
+Android 客户端，用于在手机上控制运行于 Linux 主机上的 OpenCode。
 
 ## 功能特性
 
-- OpenCode Agent — 发送指令并接收流式响应
+- OpenCode Agent — 发送指令，实时接收流式响应
 - 会话管理 — 浏览、创建、切换和删除会话
-- DeepSeek 模型 — 只读模型显示，与 OpenCode 自动同步
+- DeepSeek 模型 — 只读显示，与 OpenCode 自动同步
 - WebSocket 实时流式通信
-- Markdown 渲染 — 支持代码块、表格、粗体、斜体、列表
-- Room 数据库 — 本地消息持久化存储
+- Markdown 渲染 — 代码块、表格、粗体、斜体、列表
+- Room 数据库 — 本地消息持久化
+
+## 截图
+
+| 主界面 | 聊天界面 |
+|:---:|:---:|
+| ![Main Screen](docs/screenshot1.png) | ![Chat Screen](docs/screenshot2.png) |
 
 ## 环境要求
 
 - Android 8.0+ (API 26)
 - Java 21+
 - Android SDK
-- Linux 环境，Python 3.11+
+- Linux 环境（后端），Python 3.11+
 - 已安装 [OpenCode](https://opencode.ai) CLI
 
-已在 Debian 和 Ubuntu 上测试通过。其他 Linux 发行版只要具备 Python 3.11+ 和 OpenCode 也可正常运行。
+已在 Debian 和 Ubuntu 上测试通过，理论上任何安装了 Python 3.11 和 OpenCode CLI 的 Linux 发行版均可运行。
 
 ## 系统架构
 
@@ -50,8 +56,6 @@
 ```
 
 ## 快速开始
-
-克隆仓库并进入项目目录：
 
 ```bash
 git clone https://github.com/Shixiaoshi0417/CodePocketAndroid.git
@@ -78,17 +82,17 @@ python server.py
 
 ```bash
 ./gradlew assembleDebug
-# APK 路径: app/build/outputs/apk/debug/app-debug.apk
+# APK: app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## 使用说明
 
-1. 在 Linux 机器上启动 OpenCode
+1. 在 Linux 主机上启动 OpenCode
 2. 启动后端：`python server.py`
 3. 在 Android 设备上安装 APK
-4. 在应用中配置 WebSocket 服务器地址：`ws://<你的设备IP>:8765/ws`
+4. 在应用中配置服务器地址：`ws://<服务器IP>:8765/ws`
 5. 选择已有会话或创建新会话
-6. 输入指令并点击发送 — OpenCode Agent 实时响应
+6. 输入指令并发送 — OpenCode Agent 实时响应
 
 ## 项目结构
 
