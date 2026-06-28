@@ -2,60 +2,86 @@
 
 ![License](https://img.shields.io/github/license/Shixiaoshi0417/CodePocketAndroid)
 ![Platform](https://img.shields.io/badge/platform-Android-green)
-![Kotlin](https://img.shields.io/badge/Kotlin-76%25-purple)
-![Python](https://img.shields.io/badge/Python-23%25-blue)
+![Kotlin](https://img.shields.io/badge/Kotlin-2.0-7F52FF?logo=kotlin)
+![Python](https://img.shields.io/badge/Python-3.13-blue?logo=python)
+![Gradle](https://img.shields.io/badge/Gradle-8.10-02303A?logo=gradle)
 
 Android client for controlling OpenCode from your phone.
 
 ## Features
 
-- Chat with OpenCode Agent from Android
-- Session management (create, switch, delete sessions)
-- DeepSeek model integration
+- OpenCode Agent — send prompts, receive streaming responses
+- Session management — browse, create, switch, and delete sessions
+- DeepSeek model — read-only model display synced from OpenCode
 - Real-time streaming via WebSocket
-- Markdown rendering (code blocks, tables, bold, lists)
-- Model display (read-only, synced from OpenCode)
+- Markdown rendering — code blocks, tables, bold, italic, lists
+- Room database — local message persistence
+
+## Requirements
+
+- Android 8.0+ (API 26)
+- Java 21+
+- Android SDK
+- Debian/Ubuntu (for backend)
+- Python 3.11+
+- [OpenCode](https://opencode.ai) installed
 
 ## Architecture
 
 ```
-Android App (Kotlin + Jetpack Compose)
-    ↕ WebSocket
-FastAPI Backend (Python)
-    ↕ subprocess
-OpenCode CLI (opencode run)
-    ↕ API
-DeepSeek
+┌──────────────────┐
+│  Android Client  │  Kotlin + Jetpack Compose
+└────────┬─────────┘
+         │ WebSocket
+┌────────▼─────────┐
+│ FastAPI Backend   │  Python, port 8765
+└────────┬─────────┘
+         │ subprocess
+┌────────▼─────────┐
+│  OpenCode CLI     │  opencode run
+└────────┬─────────┘
+         │ API
+┌────────▼─────────┐
+│    DeepSeek       │  AI model
+└──────────────────┘
 ```
-
-## Requirements
-
-- Android 8.0+
-- Debian/Ubuntu (for backend)
-- Python 3.11+
-- OpenCode installed (`curl -fsSL https://opencode.ai/install | bash`)
 
 ## Quick Start
 
-**Backend:**
+### Backend
+
 ```bash
 cd backend
-python3 -m venv .venv
+python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 python server.py
 ```
 
-**Android:**
+Default: `http://0.0.0.0:8765`
+
+### Android
+
 ```bash
 ./gradlew assembleDebug
-# APK at: app/build/outputs/apk/debug/app-debug.apk
+# APK: app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Or download from [GitHub Releases](https://github.com/Shixiaoshi0417/CodePocketAndroid/releases).
+
+## Usage
+
+1. Start OpenCode on your Debian machine
+2. Start the backend: `python server.py`
+3. Install the APK on your Android device
+4. Set the server IP in the app (default: `ws://127.0.0.1:8765/ws`)
+5. Tap a session or create a new one
+6. Type your prompt and tap Send — OpenCode Agent responds in real-time
 
 ## Project Structure
 
 ```
-app/          Android app (Kotlin, Compose, Room)
+app/          Android app (Kotlin, Compose, Room, OkHttp)
 backend/      FastAPI WebSocket server (Python)
 docs/         Documentation
 ```
