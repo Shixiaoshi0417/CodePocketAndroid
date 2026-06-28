@@ -48,6 +48,11 @@ Android client for controlling OpenCode from your phone.
 
 ## Quick Start
 
+```bash
+git clone https://github.com/Shixiaoshi0417/CodePocketAndroid.git
+cd CodePocketAndroid
+```
+
 ### Backend
 
 ```bash
