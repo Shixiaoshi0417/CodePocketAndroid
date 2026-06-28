@@ -1,7 +1,10 @@
 package io.github.shixiaoshi0417.codepocketandroid.websocket
 
 import io.github.shixiaoshi0417.codepocketandroid.model.ChatMessage
+import io.github.shixiaoshi0417.codepocketandroid.model.ChatRequest
+import io.github.shixiaoshi0417.codepocketandroid.model.ChatResponse
 import io.github.shixiaoshi0417.codepocketandroid.model.ConnectionState
+import io.github.shixiaoshi0417.codepocketandroid.model.MessageRole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -10,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -17,10 +21,13 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
-class WebSocketManager {
+class WebSocketManager(
+    private val onMessagePersist: (suspend (ChatMessage) -> Unit)? = null
+) {
 
     private val url = "ws://127.0.0.1:8765/ws"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val client = OkHttpClient.Builder()
         .readTimeout(0, TimeUnit.MILLISECONDS)
@@ -30,11 +37,18 @@ class WebSocketManager {
     private var isManualDisconnect = false
     private var isReconnecting = false
 
+    var conversationId: String = ""
+
     private val _connectionState = MutableStateFlow(ConnectionState.DISCONNECTED)
     val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
+
+    fun switchConversation(convId: String, initialMessages: List<ChatMessage>) {
+        conversationId = convId
+        _messages.value = initialMessages
+    }
 
     fun connect() {
         if (_connectionState.value == ConnectionState.CONNECTED ||
@@ -53,16 +67,27 @@ class WebSocketManager {
         _connectionState.value = ConnectionState.DISCONNECTED
     }
 
-    fun sendMessage(message: String) {
+    fun sendChat(message: String) {
         val connected = _connectionState.value == ConnectionState.CONNECTED
         if (!connected) return
-        webSocket?.send(message)
+        val request = ChatRequest(message = message)
+        val requestBody = json.encodeToString(ChatRequest.serializer(), request)
+        webSocket?.send(requestBody)
         val chatMessage = ChatMessage(
+            role = MessageRole.USER,
             content = message,
-            isUser = true,
-            timestamp = System.currentTimeMillis()
+            conversationId = conversationId
         )
         _messages.value = _messages.value + chatMessage
+        persistMessage(chatMessage)
+    }
+
+    private fun persistMessage(message: ChatMessage) {
+        onMessagePersist?.let { persist ->
+            scope.launch {
+                persist(message)
+            }
+        }
     }
 
     private fun startConnection() {
@@ -74,12 +99,66 @@ class WebSocketManager {
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                val chatMessage = ChatMessage(
-                    content = text,
-                    isUser = false,
-                    timestamp = System.currentTimeMillis()
-                )
-                _messages.value = _messages.value + chatMessage
+                try {
+                    val baseResponse = json.decodeFromString(ChatResponse.serializer(), text)
+
+                    when (baseResponse.type) {
+                        "start" -> {
+                            val streamMessage = ChatMessage(
+                                role = MessageRole.ASSISTANT,
+                                content = "",
+                                isStreaming = true,
+                                conversationId = conversationId
+                            )
+                            _messages.value = _messages.value + streamMessage
+                        }
+                        "delta" -> {
+                            val currentMessages = _messages.value
+                            if (currentMessages.isNotEmpty()) {
+                                val last = currentMessages.last()
+                                if (last.isStreaming) {
+                                    val updated = last.copy(
+                                        content = last.content + baseResponse.content
+                                    )
+                                    _messages.value = currentMessages.dropLast(1) + updated
+                                }
+                            }
+                        }
+                        "done" -> {
+                            val currentMessages = _messages.value
+                            if (currentMessages.isNotEmpty()) {
+                                val last = currentMessages.last()
+                                if (last.isStreaming) {
+                                    val updated = last.copy(isStreaming = false)
+                                    _messages.value = currentMessages.dropLast(1) + updated
+                                    persistMessage(updated)
+                                }
+                            }
+                        }
+                        else -> {
+                            val role = when (baseResponse.role.lowercase()) {
+                                "assistant" -> MessageRole.ASSISTANT
+                                "system" -> MessageRole.SYSTEM
+                                else -> MessageRole.ASSISTANT
+                            }
+                            val chatMessage = ChatMessage(
+                                role = role,
+                                content = baseResponse.content.ifEmpty { text },
+                                conversationId = conversationId
+                            )
+                            _messages.value = _messages.value + chatMessage
+                            persistMessage(chatMessage)
+                        }
+                    }
+                } catch (e: Exception) {
+                    val chatMessage = ChatMessage(
+                        role = MessageRole.ASSISTANT,
+                        content = text,
+                        conversationId = conversationId
+                    )
+                    _messages.value = _messages.value + chatMessage
+                    persistMessage(chatMessage)
+                }
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
