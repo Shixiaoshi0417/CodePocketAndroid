@@ -79,7 +79,7 @@ Or download from [GitHub Releases](https://github.com/Shixiaoshi0417/CodePocketA
 1. Start OpenCode on your Debian machine
 2. Start the backend: `python server.py`
 3. Install the APK on your Android device
-4. Set the server IP in the app (default: `ws://127.0.0.1:8765/ws`)
+4. In the app, the WebSocket connects to `ws://<your-server-ip>:8765/ws`
 5. Tap a session or create a new one
 6. Type your prompt and tap Send — OpenCode Agent responds in real-time
 
