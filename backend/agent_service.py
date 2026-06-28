@@ -12,10 +12,10 @@ async def _send(websocket, msg_type: str, content: str = "", success: bool = Non
     await asyncio.sleep(0.01)
 
 
-async def run_agent(websocket, prompt: str):
+async def run_agent(websocket, prompt: str, model: str = "", session_id: str = ""):
     try:
         await _send(websocket, "agent_start")
-        async for line in run_agent_lines(prompt):
+        async for line in run_agent_lines(prompt, model, session_id):
             if isinstance(line, tuple):
                 tag, value = line[0], line[1]
                 if tag == "__RESULT__":

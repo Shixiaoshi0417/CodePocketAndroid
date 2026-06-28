@@ -32,6 +32,8 @@ import io.github.shixiaoshi0417.codepocketandroid.viewmodel.AgentViewModel
 fun AgentScreen(
     viewModel: AgentViewModel,
     connectionState: ConnectionState,
+    model: String = "",
+    sessionId: String = "",
     modifier: Modifier = Modifier
 ) {
     val messages by viewModel.messages.collectAsState()
@@ -105,7 +107,7 @@ fun AgentScreen(
                 onClick = {
                     val text = inputText.trim()
                     if (text.isNotEmpty()) {
-                        viewModel.sendPrompt(text)
+                        viewModel.sendPrompt(text, model, sessionId)
                         inputText = ""
                     }
                 },

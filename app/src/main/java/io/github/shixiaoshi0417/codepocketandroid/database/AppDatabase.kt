@@ -4,17 +4,15 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import io.github.shixiaoshi0417.codepocketandroid.database.entity.ConversationEntity
 import io.github.shixiaoshi0417.codepocketandroid.database.entity.MessageEntity
 
 @Database(
-    entities = [ConversationEntity::class, MessageEntity::class],
-    version = 3,
+    entities = [MessageEntity::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
-    abstract fun conversationDao(): ConversationDao
     abstract fun messageDao(): MessageDao
 
     companion object {

@@ -3,53 +3,53 @@ package io.github.shixiaoshi0417.codepocketandroid.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import io.github.shixiaoshi0417.codepocketandroid.database.AppDatabase
-import io.github.shixiaoshi0417.codepocketandroid.database.entity.ConversationEntity
 import io.github.shixiaoshi0417.codepocketandroid.database.entity.MessageEntity
-import io.github.shixiaoshi0417.codepocketandroid.model.AgentStep
 import io.github.shixiaoshi0417.codepocketandroid.model.ChatMessage
 import io.github.shixiaoshi0417.codepocketandroid.model.ConnectionState
-import io.github.shixiaoshi0417.codepocketandroid.model.Conversation
 import io.github.shixiaoshi0417.codepocketandroid.model.MessageRole
 import io.github.shixiaoshi0417.codepocketandroid.model.MessageType
+import io.github.shixiaoshi0417.codepocketandroid.model.OpenCodeSession
 import io.github.shixiaoshi0417.codepocketandroid.websocket.WebSocketManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.UUID
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = AppDatabase.getInstance(application)
-    private val conversationDao = db.conversationDao()
     private val messageDao = db.messageDao()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val httpClient = OkHttpClient()
+    private val sessionJson = Json { ignoreUnknownKeys = true }
 
-    private val _conversations = MutableStateFlow<List<Conversation>>(emptyList())
-    val conversations: StateFlow<List<Conversation>> = _conversations.asStateFlow()
-
-    private val _currentConversationId = MutableStateFlow("")
-    val currentConversationId: StateFlow<String> = _currentConversationId.asStateFlow()
+    private val _selectedSessionId = MutableStateFlow("")
+    val selectedSessionId: StateFlow<String> = _selectedSessionId.asStateFlow()
 
     private val webSocketManager = WebSocketManager(
         onMessagePersist = { message ->
-            messageDao.insertMessage(
-                MessageEntity(
-                    id = message.id,
-                    role = message.role.name,
-                    content = message.content,
-                    timestamp = message.timestamp,
-                    conversationId = message.conversationId,
-                    isStreaming = message.isStreaming,
-                    messageType = message.messageType.name,
-                    agentSessionId = message.agentSessionId
-                )
-            )
-            updateConversationTimestamp(message.conversationId)
-            autoNameConversation(message)
+            messageDao.insertMessage(MessageEntity(
+                id = message.id, role = message.role.name, content = message.content,
+                timestamp = message.timestamp, conversationId = message.agentSessionId.ifEmpty { _selectedSessionId.value },
+                isStreaming = message.isStreaming, messageType = message.messageType.name,
+                agentSessionId = message.agentSessionId.ifEmpty { _selectedSessionId.value }
+            ))
         }
     )
 
@@ -57,123 +57,106 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val messages: StateFlow<List<ChatMessage>> = webSocketManager.messages
     val agentViewModel = AgentViewModel(webSocketManager)
 
+    private val _sessions = MutableStateFlow<List<OpenCodeSession>>(emptyList())
+    val sessions: StateFlow<List<OpenCodeSession>> = _sessions.asStateFlow()
+
+    val currentModel: StateFlow<String> = combine(_sessions, _selectedSessionId) { sessions, id ->
+        sessions.find { it.id == id }?.model ?: "deepseek-v4-pro"
+    }.stateIn(scope, SharingStarted.Eagerly, "deepseek-v4-pro")
+
+    val currentSession: StateFlow<OpenCodeSession?> = combine(_sessions, _selectedSessionId) { sessions, id ->
+        sessions.find { it.id == id }
+    }.stateIn(scope, SharingStarted.Eagerly, null)
+
+    val availableModels = listOf("deepseek-v4-pro", "deepseek-v4-flash", "gpt-5", "claude-sonnet-4", "gemini-2.5-pro")
+
     init {
-        scope.launch { initializeConversations() }
-    }
-
-    private suspend fun initializeConversations() {
-        val entities = conversationDao.getAllConversationsOnce()
-        if (entities.isEmpty()) {
-            val newConv = ConversationEntity(
-                id = UUID.randomUUID().toString(),
-                title = "New Chat",
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-            conversationDao.insertConversation(newConv)
-            _currentConversationId.value = newConv.id
-            webSocketManager.switchConversation(newConv.id, emptyList())
-            refreshConversations()
-        } else {
-            val latest = entities.first()
-            _currentConversationId.value = latest.id
-            loadMessagesForConversation(latest.id)
-            refreshConversations()
+        scope.launch {
+            loadSessions()
+            val sessions = _sessions.value
+            if (sessions.isNotEmpty()) openSession(sessions.first().id)
         }
     }
 
-    private fun loadMessagesForConversation(convId: String) {
+    fun loadSessions() {
         scope.launch {
-            val entities = messageDao.getMessagesByConversationOnce(convId)
-            val restored = entities.map { entity ->
-                ChatMessage(
-                    id = entity.id,
-                    role = try { MessageRole.valueOf(entity.role) } catch (e: Exception) { MessageRole.ASSISTANT },
-                    content = entity.content,
-                    timestamp = entity.timestamp,
-                    isStreaming = false,
-                    conversationId = entity.conversationId,
-                    messageType = try { MessageType.valueOf(entity.messageType) } catch (e: Exception) { MessageType.CHAT },
-                    agentSessionId = entity.agentSessionId
-                )
+            try {
+                val req = Request.Builder().url("http://127.0.0.1:8765/sessions").build()
+                val body = httpClient.newCall(req).execute().body?.string() ?: ""
+                _sessions.value = sessionJson.parseToJsonElement(body).jsonArray.map {
+                    val o = it.jsonObject
+                    OpenCodeSession(
+                        id = o["id"]?.jsonPrimitive?.content ?: "",
+                        title = o["title"]?.jsonPrimitive?.content ?: "",
+                        directory = o["directory"]?.jsonPrimitive?.content ?: "",
+                        agent = o["agent"]?.jsonPrimitive?.content ?: "",
+                        model = o["model"]?.jsonPrimitive?.content ?: "deepseek-v4-pro",
+                        timeUpdated = o["time_updated"]?.jsonPrimitive?.long ?: 0L
+                    )
+                }
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun openSession(sessionId: String) {
+        _selectedSessionId.value = sessionId
+        webSocketManager.conversationId = sessionId
+        scope.launch {
+            try {
+                val req = Request.Builder().url("http://127.0.0.1:8765/sessions/$sessionId/messages").build()
+                val body = httpClient.newCall(req).execute().body?.string() ?: "[]"
+                val restored = sessionJson.parseToJsonElement(body).jsonArray.mapNotNull { elem ->
+                    val o = elem.jsonObject
+                    val roleStr = o["role"]?.jsonPrimitive?.content ?: return@mapNotNull null
+                    val role = try { MessageRole.valueOf(roleStr.uppercase()) } catch (e: Exception) { MessageRole.ASSISTANT }
+                    val ts = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
+                    val parts = o["parts"]?.jsonArray ?: return@mapNotNull null
+                    val content = parts.joinToString("\n") { it.jsonObject["text"]?.jsonPrimitive?.content ?: "" }.trim()
+                    if (content.isEmpty()) return@mapNotNull null
+                    ChatMessage(role = role, content = content, timestamp = ts, agentSessionId = sessionId, messageType = MessageType.CHAT)
+                }
+                webSocketManager.switchConversation(sessionId, restored)
+            } catch (_: Exception) {
+                webSocketManager.switchConversation(sessionId, emptyList())
             }
-            webSocketManager.switchConversation(convId, restored)
         }
     }
 
-    private suspend fun refreshConversations() {
-        val entities = conversationDao.getAllConversationsOnce()
-        val convs = entities.map { entity ->
-            val count = messageDao.getMessageCount(entity.id)
-            Conversation(id = entity.id, title = entity.title,
-                createdAt = entity.createdAt, updatedAt = entity.updatedAt, messageCount = count)
-        }
-        _conversations.value = convs
-    }
-
-    private suspend fun updateConversationTimestamp(convId: String) {
-        val conv = conversationDao.getConversation(convId) ?: return
-        conversationDao.updateConversation(convId, conv.title, System.currentTimeMillis())
-    }
-
-    private fun autoNameConversation(message: ChatMessage) {
-        if (message.role != MessageRole.USER) return
+    fun newSession() {
         scope.launch {
-            val conv = conversationDao.getConversation(message.conversationId) ?: return@launch
-            if (conv.title != "New Chat") return@launch
-            val title = message.content.take(20)
-            conversationDao.updateConversation(conv.id, title, System.currentTimeMillis())
-            refreshConversations()
+            try {
+                val json = """{"title":"New Chat","model":"deepseek-v4-pro"}"""
+                val req = Request.Builder().url("http://127.0.0.1:8765/sessions")
+                    .post(json.toRequestBody("application/json".toMediaType())).build()
+                val body = httpClient.newCall(req).execute().body?.string() ?: "{}"
+                val o = sessionJson.parseToJsonElement(body).jsonObject
+                val id = o["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString()
+                loadSessions()
+                openSession(id)
+            } catch (_: Exception) {
+                val id = UUID.randomUUID().toString()
+                _sessions.value = _sessions.value + OpenCodeSession(id = id, title = "New Chat", timeUpdated = System.currentTimeMillis(), directory = "", agent = "", model = "deepseek-v4-pro")
+                openSession(id)
+            }
+        }
+    }
+
+    fun deleteSession(sessionId: String) {
+        scope.launch {
+            try {
+                val req = Request.Builder().url("http://127.0.0.1:8765/sessions/$sessionId").delete().build()
+                httpClient.newCall(req).execute()
+            } catch (_: Exception) {}
+            loadSessions()
+            val remaining = _sessions.value
+            if (remaining.isNotEmpty() && _selectedSessionId.value == sessionId) {
+                openSession(remaining.first().id)
+            }
         }
     }
 
     fun connect() { webSocketManager.connect() }
     fun disconnect() { webSocketManager.disconnect() }
-
-    fun newConversation() {
-        scope.launch {
-            val conv = ConversationEntity(
-                id = UUID.randomUUID().toString(),
-                title = "New Chat",
-                createdAt = System.currentTimeMillis(),
-                updatedAt = System.currentTimeMillis()
-            )
-            conversationDao.insertConversation(conv)
-            _currentConversationId.value = conv.id
-            webSocketManager.switchConversation(conv.id, emptyList())
-            refreshConversations()
-        }
-    }
-
-    fun switchConversation(convId: String) {
-        _currentConversationId.value = convId
-        loadMessagesForConversation(convId)
-        scope.launch { refreshConversations() }
-    }
-
-    fun deleteConversation(convId: String) {
-        scope.launch {
-            conversationDao.deleteConversation(convId)
-            messageDao.deleteMessagesByConversation(convId)
-            val remaining = conversationDao.getAllConversationsOnce()
-            if (remaining.isEmpty()) {
-                val conv = ConversationEntity(
-                    id = UUID.randomUUID().toString(),
-                    title = "New Chat",
-                    createdAt = System.currentTimeMillis(),
-                    updatedAt = System.currentTimeMillis()
-                )
-                conversationDao.insertConversation(conv)
-                _currentConversationId.value = conv.id
-                webSocketManager.switchConversation(conv.id, emptyList())
-            } else if (_currentConversationId.value == convId) {
-                val latest = remaining.first()
-                _currentConversationId.value = latest.id
-                loadMessagesForConversation(latest.id)
-            }
-            refreshConversations()
-        }
-    }
 
     override fun onCleared() {
         super.onCleared()

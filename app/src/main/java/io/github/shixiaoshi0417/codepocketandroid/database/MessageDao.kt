@@ -16,15 +16,9 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessages(messages: List<MessageEntity>)
 
-    @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC")
-    fun getMessagesByConversation(conversationId: String): Flow<List<MessageEntity>>
+    @Query("SELECT * FROM messages WHERE agent_session_id = :sessionId ORDER BY timestamp ASC")
+    suspend fun getMessagesBySession(sessionId: String): List<MessageEntity>
 
-    @Query("SELECT * FROM messages WHERE conversation_id = :conversationId ORDER BY timestamp ASC")
-    suspend fun getMessagesByConversationOnce(conversationId: String): List<MessageEntity>
-
-    @Query("SELECT COUNT(*) FROM messages WHERE conversation_id = :conversationId")
-    suspend fun getMessageCount(conversationId: String): Int
-
-    @Query("DELETE FROM messages WHERE conversation_id = :conversationId")
-    suspend fun deleteMessagesByConversation(conversationId: String)
+    @Query("DELETE FROM messages WHERE agent_session_id = :sessionId")
+    suspend fun deleteMessagesBySession(sessionId: String)
 }

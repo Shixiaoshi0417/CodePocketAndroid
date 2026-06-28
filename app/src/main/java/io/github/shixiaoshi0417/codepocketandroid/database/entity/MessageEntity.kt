@@ -14,11 +14,11 @@ data class MessageEntity(
     val content: String,
     @ColumnInfo(name = "timestamp")
     val timestamp: Long,
-    @ColumnInfo(name = "conversation_id")
-    val conversationId: String,
-    @ColumnInfo(name = "is_streaming")
+    @ColumnInfo(name = "conversation_id", defaultValue = "")
+    val conversationId: String = "",
+    @ColumnInfo(name = "is_streaming", defaultValue = "0")
     val isStreaming: Boolean = false,
-    @ColumnInfo(name = "message_type")
+    @ColumnInfo(name = "message_type", defaultValue = "CHAT")
     val messageType: String = "CHAT",
     @ColumnInfo(name = "agent_session_id")
     val agentSessionId: String = ""

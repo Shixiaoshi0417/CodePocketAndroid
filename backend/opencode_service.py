@@ -13,10 +13,20 @@ def _clean(text: str) -> str:
     return _ANSI_RE.sub("", text).strip()
 
 
-async def run_agent_lines(prompt: str):
+async def run_agent_lines(prompt: str, model: str = "", session_id: str = ""):
     workdir = os.environ.get("OPENCODE_WORKDIR", PROJECT_ROOT)
+    cmd = [OPENCODE_BIN, "run"]
+    if session_id:
+        cmd.extend(["--session", session_id])
+    if model:
+        if "/" not in model:
+            model_arg = f"deepseek/{model}"
+        else:
+            model_arg = model
+        cmd.extend(["--model", model_arg])
+    cmd.append(prompt)
     proc = await asyncio.create_subprocess_exec(
-        OPENCODE_BIN, "run", prompt,
+        *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
         cwd=workdir

@@ -143,11 +143,11 @@ class WebSocketManager(
         _connectionState.value = ConnectionState.DISCONNECTED
     }
 
-    fun sendAgent(prompt: String) {
+    fun sendAgent(prompt: String, model: String = "", sessionId: String = "") {
         val connected = _connectionState.value == ConnectionState.CONNECTED
         if (!connected) { Log.e("WS_SEND", "AGENT blocked: not connected"); return }
         _agentSteps.value = emptyList()
-        val request = AgentRequest(type = "agent", prompt = prompt)
+        val request = AgentRequest(type = "agent", prompt = prompt, model = model, sessionId = sessionId)
         val requestBody = json.encodeToString(AgentRequest.serializer(), request)
         Log.e("WS_SEND", "AGENT: $requestBody")
         webSocket?.send(requestBody)

@@ -22,7 +22,7 @@ class AgentViewModel(
             return lastType != AgentStatusType.RESULT && lastType != AgentStatusType.ERROR
         }
 
-    fun sendPrompt(prompt: String) {
-        webSocketManager.sendAgent(prompt)
+    fun sendPrompt(prompt: String, model: String = "", sessionId: String = "") {
+        webSocketManager.sendAgent(prompt, model, sessionId)
     }
 }
