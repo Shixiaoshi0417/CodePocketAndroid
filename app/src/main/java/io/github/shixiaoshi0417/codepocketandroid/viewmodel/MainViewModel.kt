@@ -130,35 +130,56 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 .url("http://127.0.0.1:8765/sessions/$sessionId/messages")
                 .build()
             val body = httpClient.newCall(req).execute().body?.string() ?: "[]"
-            sessionJson.parseToJsonElement(body).jsonArray.mapNotNull {
-                val o = it.jsonObject
+            sessionJson.parseToJsonElement(body).jsonArray.flatMap { elem ->
+                val o = elem.jsonObject
                 val roleStr = o["role"]?.jsonPrimitive?.content?.uppercase() ?: "USER"
                 val role = try { MessageRole.valueOf(roleStr) } catch (_: Exception) { MessageRole.USER }
-                val parts = o["parts"]?.jsonArray ?: return@mapNotNull null
-                val content = parts.mapNotNull { p ->
+                val parts = o["parts"]?.jsonArray ?: return@flatMap emptyList()
+                val timeCreated = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
+                val msgId = o["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString()
+
+                val toolContent = parts.mapNotNull { p ->
                     val obj = p.jsonObject
                     val type = obj["type"]?.jsonPrimitive?.content ?: ""
                     val text = obj["text"]?.jsonPrimitive?.content ?: ""
-                    if (type == "reasoning") null else text.ifEmpty { null }
+                    if (type in listOf("tool", "step-start", "step-finish")) text.ifEmpty { null } else null
                 }.joinToString("\n").trim()
-                if (content.isEmpty()) return@mapNotNull null
-                val hasToolPart = parts.any { p ->
-                    p.jsonObject["type"]?.jsonPrimitive?.content in listOf("tool", "step-start", "step-finish")
+
+                val textContent = parts.mapNotNull { p ->
+                    val obj = p.jsonObject
+                    val type = obj["type"]?.jsonPrimitive?.content ?: ""
+                    val text = obj["text"]?.jsonPrimitive?.content ?: ""
+                    if (type == "text") text.ifEmpty { null } else null
+                }.joinToString("\n").trim()
+
+                val result = mutableListOf<ChatMessage>()
+                if (toolContent.isNotEmpty()) {
+                    result.add(ChatMessage(
+                        id = "${msgId}_proc", role = role, content = toolContent,
+                        timestamp = timeCreated, conversationId = sessionId,
+                        messageType = MessageType.AGENT_STATUS
+                    ))
                 }
-                val messageType = when {
-                    role == MessageRole.USER -> MessageType.CHAT
-                    hasToolPart -> MessageType.AGENT_STATUS
-                    else -> MessageType.CHAT
+                if (textContent.isNotEmpty()) {
+                    result.add(ChatMessage(
+                        id = "${msgId}_text", role = role, content = textContent,
+                        timestamp = timeCreated, conversationId = sessionId,
+                        messageType = MessageType.CHAT
+                    ))
                 }
-                val timeCreated = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
-                ChatMessage(
-                    id = o["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString(),
-                    role = role,
-                    content = content,
-                    timestamp = timeCreated,
-                    conversationId = sessionId,
-                    messageType = messageType
-                )
+                if (result.isEmpty() && role == MessageRole.USER) {
+                    val content = parts.joinToString("\n") {
+                        it.jsonObject["text"]?.jsonPrimitive?.content ?: ""
+                    }.trim()
+                    if (content.isNotEmpty()) {
+                        result.add(ChatMessage(
+                            id = msgId, role = role, content = content,
+                            timestamp = timeCreated, conversationId = sessionId,
+                            messageType = MessageType.CHAT
+                        ))
+                    }
+                }
+                result
             }
         } catch (_: Exception) {
             emptyList()
