@@ -73,9 +73,11 @@ class WebSocketManager(
                             content = "",
                             isStreaming = true,
                             conversationId = conversationId,
-                            messageType = MessageType.AGENT_STATUS
+                            messageType = MessageType.AGENT_STATUS,
+                            agentSessionId = conversationId
                         )
                         _messages.value = _messages.value + agentMsg
+                        persistMessage(agentMsg)
                     }
                     is AgentEvent.Status -> {
                         _agentSteps.value = _agentSteps.value + AgentStep(
@@ -90,6 +92,7 @@ class WebSocketManager(
                                     content = last.content + event.content + "\n"
                                 )
                                 _messages.value = current.dropLast(1) + updated
+                                persistMessage(updated)
                             }
                         }
                     }
@@ -118,7 +121,8 @@ class WebSocketManager(
                                         role = MessageRole.ASSISTANT,
                                         content = split.second,
                                         conversationId = conversationId,
-                                        messageType = MessageType.CHAT
+                                        messageType = MessageType.CHAT,
+                                        agentSessionId = conversationId
                                     )
                                     messages = messages + answerMsg
                                     persistMessage(answerMsg)
