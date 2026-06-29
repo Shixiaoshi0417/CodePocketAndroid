@@ -114,7 +114,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun openSession(sessionId: String) {
         _selectedSessionId.value = sessionId
         webSocketManager.conversationId = sessionId
-        webSocketManager.switchConversation(sessionId, emptyList())
+        if (sessionId.isEmpty()) {
+            webSocketManager.switchConversation("", emptyList())
+            return
+        }
+        scope.launch {
+            val messages = loadMessages(sessionId)
+            webSocketManager.switchConversation(sessionId, messages)
+        }
+    }
+
+    private fun loadMessages(sessionId: String): List<ChatMessage> {
+        return try {
+            val req = Request.Builder()
+                .url("http://127.0.0.1:8765/sessions/$sessionId/messages")
+                .build()
+            val body = httpClient.newCall(req).execute().body?.string() ?: "[]"
+            sessionJson.parseToJsonElement(body).jsonArray.map {
+                val o = it.jsonObject
+                val roleStr = o["role"]?.jsonPrimitive?.content?.uppercase() ?: "USER"
+                val role = try {
+                    MessageRole.valueOf(roleStr)
+                } catch (_: Exception) {
+                    MessageRole.USER
+                }
+                val parts = o["parts"]?.jsonArray
+                val content = parts?.joinToString("\n") { p ->
+                    p.jsonObject["text"]?.jsonPrimitive?.content ?: ""
+                } ?: ""
+                val timeCreated = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
+                ChatMessage(
+                    id = o["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString(),
+                    role = role,
+                    content = content,
+                    timestamp = timeCreated,
+                    conversationId = sessionId,
+                    messageType = MessageType.CHAT
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     fun newSession() {
