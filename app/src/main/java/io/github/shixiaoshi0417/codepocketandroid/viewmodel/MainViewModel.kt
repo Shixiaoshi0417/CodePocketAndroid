@@ -76,11 +76,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val availableModels = listOf("deepseek-v4-pro", "deepseek-v4-flash", "gpt-5", "claude-sonnet-4", "gemini-2.5-pro")
 
     init {
-        scope.launch {
-            loadSessions()
-            val sessions = _sessions.value
-            if (sessions.isNotEmpty()) openSession(sessions.first().id)
-        }
+        scope.launch { loadSessions() }
     }
 
     fun loadSessions() {
@@ -106,25 +102,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun openSession(sessionId: String) {
         _selectedSessionId.value = sessionId
         webSocketManager.conversationId = sessionId
-        scope.launch {
-            try {
-                val req = Request.Builder().url("http://127.0.0.1:8765/sessions/$sessionId/messages").build()
-                val body = httpClient.newCall(req).execute().body?.string() ?: "[]"
-                val restored = sessionJson.parseToJsonElement(body).jsonArray.mapNotNull { elem ->
-                    val o = elem.jsonObject
-                    val roleStr = o["role"]?.jsonPrimitive?.content ?: return@mapNotNull null
-                    val role = try { MessageRole.valueOf(roleStr.uppercase()) } catch (e: Exception) { MessageRole.ASSISTANT }
-                    val ts = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
-                    val parts = o["parts"]?.jsonArray ?: return@mapNotNull null
-                    val content = parts.joinToString("\n") { it.jsonObject["text"]?.jsonPrimitive?.content ?: "" }.trim()
-                    if (content.isEmpty()) return@mapNotNull null
-                    ChatMessage(role = role, content = content, timestamp = ts, agentSessionId = sessionId, messageType = MessageType.CHAT)
-                }
-                webSocketManager.switchConversation(sessionId, restored)
-            } catch (_: Exception) {
-                webSocketManager.switchConversation(sessionId, emptyList())
-            }
-        }
+        webSocketManager.switchConversation(sessionId, emptyList())
     }
 
     fun newSession() {
