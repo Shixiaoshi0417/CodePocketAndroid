@@ -124,11 +124,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         scope.launch {
-            val remoteMessages = loadMessages(sessionId)
+            android.util.Log.d("LOAD", "openSession: $sessionId")
             val localMessages = loadLocalMessages(sessionId)
-            val merged = (remoteMessages + localMessages).distinctBy { it.id }
-                .sortedBy { it.timestamp }
-            webSocketManager.switchConversation(sessionId, merged)
+            android.util.Log.d("LOAD", "localMessages count: ${localMessages.size}")
+            localMessages.forEach {
+                android.util.Log.d("DB", "${it.id.take(20)} ${it.role} type=${it.messageType} ${it.content.take(50)}")
+            }
+            webSocketManager.switchConversation(sessionId, localMessages)
+            val uiMessages = webSocketManager.messages.value
+            android.util.Log.d("UI", "uiMessages after switch: ${uiMessages.size}")
+            uiMessages.forEach {
+                android.util.Log.d("UI", "${it.id.take(20)} ${it.role} type=${it.messageType} ${it.content.take(50)}")
+            }
         }
     }
 
