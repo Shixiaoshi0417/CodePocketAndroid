@@ -6,7 +6,9 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -24,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import io.github.shixiaoshi0417.codepocketandroid.model.ChatMessage
 import io.github.shixiaoshi0417.codepocketandroid.ui.markdown.MarkdownText
 
-private const val MAX_CHARS = 10000
+private const val CHUNK_SIZE = 1000
 
 @Composable
 fun AgentProcessCard(
@@ -44,7 +46,7 @@ fun AgentProcessCard(
     }
 
     val rawContent = processMessages.joinToString("\n") { it.content }
-    val capped = rawContent.take(MAX_CHARS)
+    val chunks = rawContent.chunked(CHUNK_SIZE)
 
     Card(
         modifier = modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -62,14 +64,11 @@ fun AgentProcessCard(
 
         AnimatedVisibility(visible = expanded, enter = expandVertically(), exit = shrinkVertically()) {
             Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
-                MarkdownText(content = capped)
-                if (rawContent.length > MAX_CHARS) {
-                    Text(
-                        "\u2026\u5269\u4F59 ${rawContent.length - MAX_CHARS} \u5B57\u7B26\u672A\u663E\u793A",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
+                chunks.forEach { chunk ->
+                    MarkdownText(content = chunk)
+                    if (chunks.size > 1) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
             }
         }
