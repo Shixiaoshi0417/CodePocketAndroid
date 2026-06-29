@@ -77,9 +77,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         scope.launch {
+            val fixed = messageDao.fixMessageTypes()
+            android.util.Log.i("CodePocket", "Fixed $fixed mislabeled messages")
+            val allMsgs = messageDao.getAllMessages()
+            allMsgs.forEach { msg ->
+                android.util.Log.i("CodePocket", "  DB [${msg.messageType}] role=${msg.role} id=${msg.id.take(20)} stream=${msg.isStreaming} session=${msg.agentSessionId.take(20)} content=${msg.content.take(50)}")
+            }
             loadSessions()
-            val count = _sessions.value.size
-            android.util.Log.i("CodePocket", "Loaded $count sessions")
+            android.util.Log.i("CodePocket", "Loaded ${_sessions.value.size} sessions")
             _sessions.value.forEach { s ->
                 val isTest = s.title.contains("Say hello", ignoreCase = true) ||
                         s.title.contains("List Kotlin", ignoreCase = true) ||

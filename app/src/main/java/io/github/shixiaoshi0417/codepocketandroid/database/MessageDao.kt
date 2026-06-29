@@ -21,4 +21,10 @@ interface MessageDao {
 
     @Query("DELETE FROM messages WHERE agent_session_id = :sessionId")
     suspend fun deleteMessagesBySession(sessionId: String)
+
+    @Query("UPDATE messages SET message_type = 'CHAT' WHERE role = 'ASSISTANT' AND message_type = 'AGENT_STATUS' AND (content NOT LIKE '%→%' AND content NOT LIKE '%✱%' AND content NOT LIKE '%> build%')")
+    suspend fun fixMessageTypes(): Int
+
+    @Query("SELECT * FROM messages ORDER BY timestamp ASC")
+    suspend fun getAllMessages(): List<MessageEntity>
 }
