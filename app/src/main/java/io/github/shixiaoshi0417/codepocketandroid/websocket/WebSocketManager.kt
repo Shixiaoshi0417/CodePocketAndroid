@@ -109,7 +109,7 @@ class WebSocketManager(
                         if (current.isNotEmpty()) {
                             val last = current.last()
                             if (last.isStreaming && last.role == MessageRole.ASSISTANT) {
-                                val updated = last.copy(isStreaming = false, messageType = MessageType.AGENT_RESULT)
+                                val updated = last.copy(isStreaming = false)
                                 _messages.value = current.dropLast(1) + updated
                                 persistMessage(updated)
                             }
