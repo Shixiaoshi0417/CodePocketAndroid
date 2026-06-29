@@ -42,6 +42,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedSessionId = MutableStateFlow("")
     val selectedSessionId: StateFlow<String> = _selectedSessionId.asStateFlow()
 
+    private val _isAgentProcessing = MutableStateFlow(false)
+
     private val webSocketManager = WebSocketManager(
         onMessagePersist = { message ->
             messageDao.insertMessage(MessageEntity(
@@ -50,12 +52,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isStreaming = message.isStreaming, messageType = message.messageType.name,
                 agentSessionId = message.agentSessionId.ifEmpty { _selectedSessionId.value }
             ))
+        },
+        onProcessingChange = { processing ->
+            _isAgentProcessing.value = processing
         }
     )
 
     val connectionState: StateFlow<ConnectionState> = webSocketManager.connectionState
     val messages: StateFlow<List<ChatMessage>> = webSocketManager.messages
-    val agentViewModel = AgentViewModel(webSocketManager)
+    val agentViewModel = AgentViewModel(webSocketManager, _isAgentProcessing)
 
     private val _sessions = MutableStateFlow<List<OpenCodeSession>>(emptyList())
     val sessions: StateFlow<List<OpenCodeSession>> = _sessions.asStateFlow()

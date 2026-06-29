@@ -41,7 +41,7 @@ fun AgentScreen(
     var inputText by rememberSaveable { mutableStateOf("") }
 
     val isConnected = connectionState == ConnectionState.CONNECTED
-    val isProcessing = viewModel.isProcessing
+    val isProcessing by viewModel.isProcessing.collectAsState()
 
     LaunchedEffect(messages.size, messages.lastOrNull()?.content) {
         if (messages.isNotEmpty()) {

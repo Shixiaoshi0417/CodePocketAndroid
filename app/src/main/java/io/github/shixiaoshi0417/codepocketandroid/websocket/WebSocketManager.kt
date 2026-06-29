@@ -28,7 +28,8 @@ import okhttp3.WebSocketListener
 import java.util.concurrent.TimeUnit
 
 class WebSocketManager(
-    private val onMessagePersist: (suspend (ChatMessage) -> Unit)? = null
+    private val onMessagePersist: (suspend (ChatMessage) -> Unit)? = null,
+    private val onProcessingChange: ((Boolean) -> Unit)? = null
 ) {
 
     private val url = "ws://127.0.0.1:8765/ws"
@@ -103,6 +104,7 @@ class WebSocketManager(
                             type = if (event.success) AgentStatusType.RESULT else AgentStatusType.ERROR,
                             content = event.content
                         )
+                        onProcessingChange?.invoke(false)
                         val current = _messages.value
                         if (current.isNotEmpty()) {
                             val last = current.last()
@@ -138,6 +140,7 @@ class WebSocketManager(
     fun disconnect() {
         isManualDisconnect = true
         isReconnecting = false
+        onProcessingChange?.invoke(false)
         webSocket?.close(1000, "User disconnected")
         webSocket = null
         _connectionState.value = ConnectionState.DISCONNECTED
@@ -147,6 +150,7 @@ class WebSocketManager(
         val connected = _connectionState.value == ConnectionState.CONNECTED
         if (!connected) { Log.e("WS_SEND", "AGENT blocked: not connected"); return }
         _agentSteps.value = emptyList()
+        onProcessingChange?.invoke(true)
         val finalModel = model.ifEmpty { "deepseek-v4-pro" }
         val request = AgentRequest(type = "agent", prompt = prompt, model = finalModel, sessionId = sessionId)
         val requestBody = json.encodeToString(AgentRequest.serializer(), request)
@@ -222,12 +226,14 @@ class WebSocketManager(
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 _connectionState.value = ConnectionState.DISCONNECTED
                 this@WebSocketManager.webSocket = null
+                onProcessingChange?.invoke(false)
                 scheduleReconnect()
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 _connectionState.value = ConnectionState.DISCONNECTED
                 this@WebSocketManager.webSocket = null
+                onProcessingChange?.invoke(false)
                 scheduleReconnect()
             }
         })
