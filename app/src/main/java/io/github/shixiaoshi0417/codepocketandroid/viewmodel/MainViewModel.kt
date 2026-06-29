@@ -119,8 +119,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         scope.launch {
-            val messages = loadMessages(sessionId)
-            webSocketManager.switchConversation(sessionId, messages)
+            val remoteMessages = loadMessages(sessionId)
+            val localMessages = loadLocalMessages(sessionId)
+            val merged = (remoteMessages + localMessages).distinctBy { it.id }
+                .sortedBy { it.timestamp }
+            webSocketManager.switchConversation(sessionId, merged)
+        }
+    }
+
+    private suspend fun loadLocalMessages(sessionId: String): List<ChatMessage> {
+        return try {
+            val entities = messageDao.getMessagesBySession(sessionId)
+            entities.map { entity ->
+                ChatMessage(
+                    id = entity.id,
+                    role = try { MessageRole.valueOf(entity.role) } catch (e: Exception) { MessageRole.ASSISTANT },
+                    content = entity.content,
+                    timestamp = entity.timestamp,
+                    isStreaming = false,
+                    conversationId = entity.conversationId,
+                    messageType = try { MessageType.valueOf(entity.messageType) } catch (e: Exception) { MessageType.CHAT },
+                    agentSessionId = entity.agentSessionId
+                )
+            }
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 
