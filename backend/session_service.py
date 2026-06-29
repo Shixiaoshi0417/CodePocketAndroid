@@ -101,10 +101,15 @@ def create_session(title: str = "", directory: str = "", model: str = "") -> dic
     db = _get_db()
     sid = f"ses_{uuid.uuid4().hex[:28]}"
     now = int(time.time() * 1000)
+    project_id = db.execute(
+        "SELECT project_id FROM session WHERE project_id IS NOT NULL LIMIT 1"
+    ).fetchone()
+    pid = project_id[0] if project_id else ""
+    slug = title.lower().replace(" ", "-")[:20] or "new-chat"
     try:
         db.execute(
-            "INSERT INTO session (id, slug, title, directory, model, time_created, time_updated) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (sid, title.lower().replace(" ", "-")[:20] or "new-chat", title or "New Chat", directory or "", model or "", now, now)
+            "INSERT INTO session (id, project_id, slug, directory, title, version, cost, tokens_input, tokens_output, tokens_reasoning, tokens_cache_read, tokens_cache_write, time_created, time_updated) VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0, ?, ?)",
+            (sid, pid, slug, directory or "", title or "New Chat", "", now, now)
         )
         db.commit()
         return {"id": sid, "title": title or "New Chat", "directory": directory or "", "model": model or "", "time_updated": now}
