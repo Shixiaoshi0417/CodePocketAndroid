@@ -158,3 +158,27 @@ def get_session_messages(session_id: str) -> list[dict]:
         })
     db.close()
     return result
+
+
+def clear_test_data() -> dict:
+    test_keywords = ["say hello", "list kotlin", "example", "demo", "test", "new chat"]
+    db = _get_db()
+    deleted = 0
+    try:
+        for kw in test_keywords:
+            rows = db.execute(
+                "SELECT id, title FROM session WHERE LOWER(title) LIKE ?",
+                (f"%{kw}%",)
+            ).fetchall()
+            for row in rows:
+                sid = row["id"]
+                db.execute("DELETE FROM message WHERE session_id = ?", (sid,))
+                db.execute("DELETE FROM part WHERE session_id = ?", (sid,))
+                db.execute("DELETE FROM session WHERE id = ?", (sid,))
+                deleted += 1
+        db.commit()
+        return {"deleted": deleted}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        db.close()

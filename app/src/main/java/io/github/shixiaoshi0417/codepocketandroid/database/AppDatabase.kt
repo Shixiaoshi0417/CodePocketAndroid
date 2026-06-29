@@ -26,7 +26,6 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "codepocket.db"
                 )
-                    .fallbackToDestructiveMigration()
                     .build()
                     .also { INSTANCE = it }
             }

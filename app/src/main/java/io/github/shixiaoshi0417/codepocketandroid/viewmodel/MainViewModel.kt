@@ -76,7 +76,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val availableModels = listOf("deepseek-v4-pro", "deepseek-v4-flash", "gpt-5", "claude-sonnet-4", "gemini-2.5-pro")
 
     init {
-        scope.launch { loadSessions() }
+        scope.launch {
+            loadSessions()
+            val count = _sessions.value.size
+            android.util.Log.i("CodePocket", "Loaded $count sessions")
+            _sessions.value.forEach { s ->
+                val isTest = s.title.contains("Say hello", ignoreCase = true) ||
+                        s.title.contains("List Kotlin", ignoreCase = true) ||
+                        s.title.contains("Example", ignoreCase = true) ||
+                        s.title.contains("Demo", ignoreCase = true) ||
+                        s.title.contains("Test", ignoreCase = true)
+                android.util.Log.i("CodePocket", "  [${s.id.take(20)}] ${s.title} ${if (isTest) "<<< TEST" else ""}")
+            }
+        }
     }
 
     fun loadSessions() {
@@ -140,6 +152,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun connect() { webSocketManager.connect() }
     fun disconnect() { webSocketManager.disconnect() }
+
+    fun clearTestData() {
+        scope.launch {
+            try {
+                val req = Request.Builder()
+                    .url("http://127.0.0.1:8765/admin/clear-test-data")
+                    .post("".toRequestBody("application/json".toMediaType()))
+                    .build()
+                httpClient.newCall(req).execute()
+                loadSessions()
+            } catch (_: Exception) {}
+        }
+    }
 
     override fun onCleared() {
         super.onCleared()

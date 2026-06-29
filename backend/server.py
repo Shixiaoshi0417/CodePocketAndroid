@@ -5,7 +5,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
 from agent_service import run_agent
-from session_service import get_sessions, get_session, delete_session, rename_session, get_session_messages, create_session, set_session_model
+from session_service import get_sessions, get_session, delete_session, rename_session, get_session_messages, create_session, set_session_model, clear_test_data
 
 app = FastAPI()
 
@@ -73,6 +73,11 @@ async def set_model(session_id: str, data: dict):
 @app.get("/sessions/{session_id}/messages")
 async def list_session_messages(session_id: str):
     return get_session_messages(session_id)
+
+
+@app.post("/admin/clear-test-data")
+async def admin_clear_test_data():
+    return clear_test_data()
 
 
 @app.websocket("/ws")
