@@ -141,6 +141,10 @@ fun AgentScreen(
 }
 
 private fun buildMessageGroups(messages: List<ChatMessage>): List<MessageGroup> {
+    android.util.Log.d("GROUP", "messages count=${messages.size}")
+    messages.forEach {
+        android.util.Log.d("GROUP", "id=${it.id.take(30)} role=${it.role} type=${it.messageType} content=${it.content.take(100)}")
+    }
     val groups = mutableListOf<MessageGroup>()
     var i = 0
     while (i < messages.size) {

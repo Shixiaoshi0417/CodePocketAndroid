@@ -46,6 +46,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val webSocketManager = WebSocketManager(
         onMessagePersist = { message ->
+            android.util.Log.d("SAVE", "Room id=${message.id.take(30)} role=${message.role} type=${message.messageType} sid=${message.agentSessionId.take(20)} content=${message.content.take(50)}")
             messageDao.insertMessage(MessageEntity(
                 id = message.id, role = message.role.name, content = message.content,
                 timestamp = message.timestamp, conversationId = message.agentSessionId.ifEmpty { _selectedSessionId.value },
@@ -117,6 +118,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openSession(sessionId: String) {
+        android.util.Log.d("LOAD", "openSession sessionId=$sessionId")
         _selectedSessionId.value = sessionId
         webSocketManager.conversationId = sessionId
         if (sessionId.isEmpty()) {
@@ -124,18 +126,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         scope.launch {
-            android.util.Log.d("LOAD", "openSession: $sessionId")
+            val beforeSize = webSocketManager.messages.value.size
+            android.util.Log.d("LOAD", "before switch uiMessages=$beforeSize")
             val localMessages = loadLocalMessages(sessionId)
-            android.util.Log.d("LOAD", "localMessages count: ${localMessages.size}")
+            android.util.Log.d("DB", "localMessages count=${localMessages.size}")
             localMessages.forEach {
-                android.util.Log.d("DB", "${it.id.take(20)} ${it.role} type=${it.messageType} ${it.content.take(50)}")
+                android.util.Log.d("DB", "id=${it.id.take(30)} role=${it.role} type=${it.messageType} content=${it.content.take(100)}")
             }
             webSocketManager.switchConversation(sessionId, localMessages)
-            val uiMessages = webSocketManager.messages.value
-            android.util.Log.d("UI", "uiMessages after switch: ${uiMessages.size}")
-            uiMessages.forEach {
-                android.util.Log.d("UI", "${it.id.take(20)} ${it.role} type=${it.messageType} ${it.content.take(50)}")
-            }
+            val afterSize = webSocketManager.messages.value.size
+            android.util.Log.d("LOAD", "after switch uiMessages=$afterSize")
         }
     }
 

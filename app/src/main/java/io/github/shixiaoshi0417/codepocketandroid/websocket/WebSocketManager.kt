@@ -76,7 +76,9 @@ class WebSocketManager(
                             messageType = MessageType.AGENT_STATUS,
                             agentSessionId = conversationId
                         )
+                        val before = _messages.value.size
                         _messages.value = _messages.value + agentMsg
+                        android.util.Log.d("UI_APPEND", "Start before=$before after=${_messages.value.size} id=${agentMsg.id.take(20)}")
                         persistMessage(agentMsg)
                     }
                     is AgentEvent.Status -> {
@@ -91,7 +93,9 @@ class WebSocketManager(
                                 val updated = last.copy(
                                     content = last.content + event.content + "\n"
                                 )
+                                val before = _messages.value.size
                                 _messages.value = current.dropLast(1) + updated
+                                android.util.Log.d("UI_APPEND", "Status before=$before after=${_messages.value.size} id=${updated.id.take(20)}")
                                 persistMessage(updated)
                             }
                         }
@@ -127,7 +131,9 @@ class WebSocketManager(
                                     messages = messages + answerMsg
                                     persistMessage(answerMsg)
                                 }
+                                val before = _messages.value.size
                                 _messages.value = messages
+                                android.util.Log.d("UI_APPEND", "Result before=$before after=${_messages.value.size} proc=${procMsg.id.take(20)} hasAnswer=${split.second.isNotEmpty()}")
                             }
                         }
                     }
@@ -142,6 +148,7 @@ class WebSocketManager(
     }
 
     fun switchConversation(convId: String, initialMessages: List<ChatMessage>) {
+        android.util.Log.d("UI_APPEND", "switchConversation before=${_messages.value.size} after=${initialMessages.size}")
         conversationId = convId
         _messages.value = initialMessages
     }
@@ -183,6 +190,7 @@ class WebSocketManager(
     }
 
     private fun persistMessage(message: ChatMessage) {
+        android.util.Log.d("SAVE", "id=${message.id.take(30)} role=${message.role} type=${message.messageType} content=${message.content.take(80)}")
         onMessagePersist?.let { persist ->
             scope.launch { persist(message) }
         }
