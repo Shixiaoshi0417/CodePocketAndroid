@@ -109,9 +109,21 @@ class WebSocketManager(
                         if (current.isNotEmpty()) {
                             val last = current.last()
                             if (last.isStreaming && last.role == MessageRole.ASSISTANT) {
-                                val updated = last.copy(isStreaming = false)
-                                _messages.value = current.dropLast(1) + updated
-                                persistMessage(updated)
+                                val split = splitProcessAndAnswer(last.content)
+                                val procMsg = last.copy(content = split.first, isStreaming = false)
+                                var messages = current.dropLast(1) + procMsg
+                                persistMessage(procMsg)
+                                if (split.second.isNotEmpty()) {
+                                    val answerMsg = ChatMessage(
+                                        role = MessageRole.ASSISTANT,
+                                        content = split.second,
+                                        conversationId = conversationId,
+                                        messageType = MessageType.CHAT
+                                    )
+                                    messages = messages + answerMsg
+                                    persistMessage(answerMsg)
+                                }
+                                _messages.value = messages
                             }
                         }
                     }
@@ -248,6 +260,31 @@ class WebSocketManager(
             if (!isManualDisconnect) startConnection()
         }
     }
+}
+
+private fun splitProcessAndAnswer(content: String): Pair<String, String> {
+    val lines = content.split("\n")
+    val toolMarkers = listOf("> build", "→ Read", "✱ Glob", "✗ ", "Running:", "Output:", "```")
+    var splitIdx = lines.size
+    for (i in lines.lastIndex downTo 0) {
+        val line = lines[i].trim()
+        if (toolMarkers.any { line.startsWith(it) }) {
+            splitIdx = i + 1
+            break
+        }
+    }
+    if (splitIdx >= lines.size) return Pair(content, "")
+    val process = lines.subList(0, splitIdx).joinToString("\n").trim()
+    val answer = lines.subList(splitIdx, lines.size).joinToString("\n").trim()
+    if (answer.isEmpty()) return Pair(content, "")
+    return Pair(process, answer)
+}
+
+sealed class StreamEvent {
+    data object Start : StreamEvent()
+    data class Delta(val content: String) : StreamEvent()
+    data object Done : StreamEvent()
+    data class Error(val message: String) : StreamEvent()
 }
 
 sealed class AgentEvent {
