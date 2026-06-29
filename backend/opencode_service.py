@@ -1,6 +1,8 @@
 import asyncio
-import re
 import os
+import re
+import shlex
+import signal
 from pathlib import Path
 
 OPENCODE_BIN = os.environ.get("OPENCODE_BIN", "opencode")
@@ -15,19 +17,21 @@ def _clean(text: str) -> str:
 
 async def run_agent_lines(prompt: str, model: str = "", session_id: str = ""):
     workdir = os.environ.get("OPENCODE_WORKDIR", PROJECT_ROOT)
-    cmd = [OPENCODE_BIN, "run"]
+    inner_cmd = [OPENCODE_BIN, "run"]
     if session_id:
-        cmd.extend(["--session", session_id])
+        inner_cmd.extend(["--session", session_id])
     if model:
         model_arg = model if "/" in model else f"deepseek/{model}"
-        cmd.extend(["--model", model_arg])
-    cmd.append(prompt)
+        inner_cmd.extend(["--model", model_arg])
+    inner_cmd.append(prompt)
+
+    cmd = ["script", "-qec", shlex.join(inner_cmd), "/dev/null"]
 
     proc = await asyncio.create_subprocess_exec(
         *cmd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,
-        cwd=workdir
+        cwd=workdir,
     )
 
     buffer = ""
@@ -41,13 +45,19 @@ async def run_agent_lines(prompt: str, model: str = "", session_id: str = ""):
             while "\n" in buffer:
                 line, buffer = buffer.split("\n", 1)
                 clean = _clean(line).strip()
-                if clean:
+                if clean and not clean.startswith("script"):
                     yield clean
         if buffer.strip():
             clean = _clean(buffer).strip()
-            if clean:
+            if clean and not clean.startswith("script"):
                 yield clean
         await proc.wait()
         yield ("__RESULT__", proc.returncode)
     except Exception as e:
         yield ("__ERROR__", str(e))
+    finally:
+        try:
+            if proc.returncode is None:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        except Exception:
+            pass
