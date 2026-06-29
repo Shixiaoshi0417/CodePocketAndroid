@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -19,14 +19,23 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.shixiaoshi0417.codepocketandroid.model.ChatMessage
 import io.github.shixiaoshi0417.codepocketandroid.model.ConnectionState
+import io.github.shixiaoshi0417.codepocketandroid.model.MessageType
+import io.github.shixiaoshi0417.codepocketandroid.ui.component.AgentProcessCard
 import io.github.shixiaoshi0417.codepocketandroid.ui.component.MessageBubble
 import io.github.shixiaoshi0417.codepocketandroid.viewmodel.AgentViewModel
+
+private data class MessageGroup(
+    val isProcess: Boolean,
+    val messages: List<ChatMessage>
+)
 
 @Composable
 fun AgentScreen(
@@ -42,6 +51,10 @@ fun AgentScreen(
 
     val isConnected = connectionState == ConnectionState.CONNECTED
     val isProcessing by viewModel.isProcessing.collectAsState()
+
+    val groups = remember(messages) {
+        buildMessageGroups(messages)
+    }
 
     LaunchedEffect(messages.size, messages.lastOrNull()?.content) {
         if (messages.isNotEmpty()) {
@@ -78,8 +91,18 @@ fun AgentScreen(
                 state = listState,
                 modifier = Modifier.fillMaxWidth().weight(1f)
             ) {
-                items(messages, key = { it.id }) { message ->
-                    MessageBubble(message = message)
+                itemsIndexed(groups, key = { _, group ->
+                    if (group.isProcess && group.messages.isNotEmpty()) "proc_${group.messages.first().id}"
+                    else if (group.messages.isNotEmpty()) group.messages.first().id
+                    else "empty"
+                }) { _, group ->
+                    if (group.isProcess) {
+                        AgentProcessCard(processMessages = group.messages)
+                    } else {
+                        group.messages.forEach { message ->
+                            MessageBubble(message = message)
+                        }
+                    }
                 }
             }
         }
@@ -115,4 +138,30 @@ fun AgentScreen(
             ) { Text(text = "Send") }
         }
     }
+}
+
+private fun buildMessageGroups(messages: List<ChatMessage>): List<MessageGroup> {
+    val groups = mutableListOf<MessageGroup>()
+    var i = 0
+    while (i < messages.size) {
+        val msg = messages[i]
+        if (msg.messageType == MessageType.AGENT_STATUS || msg.messageType == MessageType.AGENT_COMMAND || msg.messageType == MessageType.AGENT_DIFF) {
+            val processMsgs = mutableListOf<ChatMessage>()
+            while (i < messages.size &&
+                (messages[i].messageType == MessageType.AGENT_STATUS ||
+                 messages[i].messageType == MessageType.AGENT_COMMAND ||
+                 messages[i].messageType == MessageType.AGENT_DIFF)
+            ) {
+                processMsgs.add(messages[i])
+                i++
+            }
+            if (processMsgs.isNotEmpty()) {
+                groups.add(MessageGroup(isProcess = true, messages = processMsgs))
+            }
+        } else {
+            groups.add(MessageGroup(isProcess = false, messages = listOf(msg)))
+            i++
+        }
+    }
+    return groups
 }
