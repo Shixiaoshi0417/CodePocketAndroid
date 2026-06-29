@@ -142,6 +142,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     if (type == "reasoning") null else text.ifEmpty { null }
                 }.joinToString("\n").trim()
                 if (content.isEmpty()) return@mapNotNull null
+                val hasToolPart = parts.any { p ->
+                    p.jsonObject["type"]?.jsonPrimitive?.content in listOf("tool", "step-start", "step-finish")
+                }
+                val messageType = when {
+                    role == MessageRole.USER -> MessageType.CHAT
+                    hasToolPart -> MessageType.AGENT_STATUS
+                    else -> MessageType.CHAT
+                }
                 val timeCreated = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
                 ChatMessage(
                     id = o["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString(),
@@ -149,7 +157,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     content = content,
                     timestamp = timeCreated,
                     conversationId = sessionId,
-                    messageType = MessageType.CHAT
+                    messageType = messageType
                 )
             }
         } catch (_: Exception) {
