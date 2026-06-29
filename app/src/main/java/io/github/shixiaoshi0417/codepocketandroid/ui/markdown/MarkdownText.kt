@@ -192,6 +192,10 @@ fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
                 }
                 blocks.add(MarkdownBlock.Table(headers, rows))
             }
+            line.startsWith("- [ ] ") || line.startsWith("- [x] ") || line.startsWith("- [X] ") -> {
+                val checked = line[3] != ' '
+                blocks.add(MarkdownBlock.ListItem(if (checked) "☑" else "☐", line.substring(6).trim())); i++
+            }
             line.startsWith("- ") || line.startsWith("* ") -> {
                 blocks.add(MarkdownBlock.ListItem(line.substring(0, 1), line.substring(2).trim())); i++
             }
@@ -229,8 +233,10 @@ private fun isTableLine(line: String): Boolean =
 private fun isTableSep(line: String): Boolean {
     val trimmed = line.trim()
     if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) return false
-    return trimmed.split("|").drop(1).dropLast(1).all { cell ->
-        cell.trim().matches(Regex("^:?-{3,}:?$"))
+    val cells = trimmed.split("|").drop(1).dropLast(1)
+    if (cells.isEmpty()) return false
+    return cells.all { cell ->
+        cell.trim().matches(Regex("^:?\\s*-{3,}\\s*:?$"))
     }
 }
 
