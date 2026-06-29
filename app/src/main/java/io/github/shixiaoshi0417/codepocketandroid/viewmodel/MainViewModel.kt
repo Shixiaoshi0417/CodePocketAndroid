@@ -130,18 +130,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 .url("http://127.0.0.1:8765/sessions/$sessionId/messages")
                 .build()
             val body = httpClient.newCall(req).execute().body?.string() ?: "[]"
-            sessionJson.parseToJsonElement(body).jsonArray.map {
+            sessionJson.parseToJsonElement(body).jsonArray.mapNotNull {
                 val o = it.jsonObject
                 val roleStr = o["role"]?.jsonPrimitive?.content?.uppercase() ?: "USER"
-                val role = try {
-                    MessageRole.valueOf(roleStr)
-                } catch (_: Exception) {
-                    MessageRole.USER
-                }
-                val parts = o["parts"]?.jsonArray
-                val content = parts?.joinToString("\n") { p ->
-                    p.jsonObject["text"]?.jsonPrimitive?.content ?: ""
-                } ?: ""
+                val role = try { MessageRole.valueOf(roleStr) } catch (_: Exception) { MessageRole.USER }
+                val parts = o["parts"]?.jsonArray ?: return@mapNotNull null
+                val content = parts.mapNotNull { p ->
+                    val obj = p.jsonObject
+                    val type = obj["type"]?.jsonPrimitive?.content ?: ""
+                    val text = obj["text"]?.jsonPrimitive?.content ?: ""
+                    if (type == "reasoning") null else text.ifEmpty { null }
+                }.joinToString("\n").trim()
+                if (content.isEmpty()) return@mapNotNull null
                 val timeCreated = o["time_created"]?.jsonPrimitive?.long ?: System.currentTimeMillis()
                 ChatMessage(
                     id = o["id"]?.jsonPrimitive?.content ?: UUID.randomUUID().toString(),
